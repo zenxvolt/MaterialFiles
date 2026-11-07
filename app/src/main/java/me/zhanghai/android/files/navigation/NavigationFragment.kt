@@ -72,6 +72,10 @@ class NavigationFragment : Fragment(), NavigationItem.Listener {
         startActivitySafe(intent)
     }
 
+    override fun showRecentFiles() {
+        listener.showRecentFiles()
+    }
+
     override fun closeNavigationDrawer() {
         listener.closeNavigationDrawer()
     }
@@ -82,6 +86,7 @@ class NavigationFragment : Fragment(), NavigationItem.Listener {
         fun navigateToRoot(path: Path)
         fun navigateToDefaultRoot()
         fun observeCurrentPath(owner: LifecycleOwner, observer: (Path) -> Unit)
+        fun showRecentFiles()
         fun closeNavigationDrawer()
     }
 }

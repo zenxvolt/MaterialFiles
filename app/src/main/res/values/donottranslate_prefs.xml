@@ -61,6 +61,9 @@
     </string-array>
     <string name="pref_key_standard_directory_settings">key_standard_directories</string>
     <string name="pref_key_bookmark_directories">key_bookmark_directories</string>
+    <string name="pref_key_recent_files_enabled">key_recent_files_enabled</string>
+    <bool name="pref_default_value_recent_files_enabled">true</bool>
+    <string name="pref_key_recent_files">key_recent_files</string>
     <string name="pref_key_root_strategy">key_root_strategy</string>
     <string name="pref_default_value_root_strategy">1</string>
     <string-array name="pref_entry_values_root_strategy">

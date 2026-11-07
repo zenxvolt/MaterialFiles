@@ -82,6 +82,8 @@ import me.zhanghai.android.files.navigation.NavigationRootMapLiveData
 import me.zhanghai.android.files.provider.archive.createArchiveRootPath
 import me.zhanghai.android.files.provider.archive.isArchivePath
 import me.zhanghai.android.files.provider.linux.isLinuxPath
+import me.zhanghai.android.files.recentfiles.RecentFileListActivity
+import me.zhanghai.android.files.recentfiles.RecentFiles
 import me.zhanghai.android.files.settings.Settings
 import me.zhanghai.android.files.terminal.Terminal
 import me.zhanghai.android.files.ui.AppBarLayoutExpandHackListener
@@ -121,6 +123,7 @@ import me.zhanghai.android.files.util.getDimensionDp
 import me.zhanghai.android.files.util.getQuantityString
 import me.zhanghai.android.files.util.hasSw600Dp
 import me.zhanghai.android.files.util.isOrientationLandscape
+import me.zhanghai.android.files.util.launchSafe
 import me.zhanghai.android.files.util.putArgs
 import me.zhanghai.android.files.util.setOnEditorConfirmActionListener
 import me.zhanghai.android.files.util.showToast
@@ -160,6 +163,9 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private val requestNotificationPermissionInSettingsLauncher = registerForActivityResult(
         RequestPermissionInSettingsContract(android.Manifest.permission.POST_NOTIFICATIONS),
         this::onRequestNotificationPermissionInSettingsResult
+    )
+    private val showRecentFileInDirectoryLauncher = registerForActivityResult(
+        RecentFileListActivity.ShowInDirectoryContract(), this::onShowRecentFileInDirectoryResult
     )
 
     private val args by args<Args>()
@@ -1260,6 +1266,9 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun openFileWithIntent(file: FileItem, withChooser: Boolean) {
         val path = file.path
         val mimeType = file.mimeType
+        if (viewModel.pickOptions == null) {
+            RecentFiles.add(path, mimeType)
+        }
         if (path.isArchivePath) {
             FileJobService.open(path, mimeType, withChooser, requireContext())
         } else {
@@ -1456,6 +1465,15 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     override fun observeCurrentPath(owner: LifecycleOwner, observer: (Path) -> Unit) {
         viewModel.currentPathLiveData.observe(owner, observer)
+    }
+
+    override fun showRecentFiles() {
+        showRecentFileInDirectoryLauncher.launchSafe(viewModel.pickOptions != null, this)
+    }
+
+    private fun onShowRecentFileInDirectoryResult(path: Path?) {
+        val directory = path?.parent ?: return
+        navigateTo(directory)
     }
 
     override fun closeNavigationDrawer() {

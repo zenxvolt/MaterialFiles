@@ -35,6 +35,7 @@ abstract class NavigationItem {
         fun navigateTo(path: Path)
         fun navigateToRoot(path: Path)
         fun launchIntent(intent: Intent)
+        fun showRecentFiles()
         fun closeNavigationDrawer()
     }
 }

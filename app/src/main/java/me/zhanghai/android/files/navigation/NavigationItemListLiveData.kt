@@ -15,6 +15,7 @@ object NavigationItemListLiveData : MediatorLiveData<List<NavigationItem?>>() {
         loadValue()
         addSource(Settings.STORAGES) { loadValue() }
         addSource(StorageVolumeListLiveData) { loadValue() }
+        addSource(Settings.RECENT_FILES_ENABLED) { loadValue() }
         addSource(StandardDirectoriesLiveData) { loadValue() }
         addSource(Settings.BOOKMARK_DIRECTORIES) { loadValue() }
     }
