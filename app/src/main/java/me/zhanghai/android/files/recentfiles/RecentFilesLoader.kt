@@ -21,6 +21,9 @@ object RecentFilesLoader {
     // Guard against scanning the whole index when most entries are filtered out.
     private const val MAX_SCANNED_ROW_COUNT = 5000
 
+    // MediaStore.Files.FileColumns.FORMAT is hidden from the SDK, but the column is available.
+    private const val COLUMN_FORMAT = "format"
+
     // @see android.mtp.MtpConstants.FORMAT_ASSOCIATION
     private const val FORMAT_ASSOCIATION = 0x3001
 
@@ -35,8 +38,8 @@ object RecentFilesLoader {
         )
         // Exclude directories and empty files, and files with a modification time in the future
         // (with a day of tolerance for time zone issues) that would otherwise stick to the top.
-        val selection = "(${MediaStore.Files.FileColumns.FORMAT} IS NULL" +
-            " OR ${MediaStore.Files.FileColumns.FORMAT} != ?)" +
+        val selection = "($COLUMN_FORMAT IS NULL" +
+            " OR $COLUMN_FORMAT != ?)" +
             " AND ${MediaStore.Files.FileColumns.SIZE} > 0" +
             " AND ${MediaStore.Files.FileColumns.DATE_MODIFIED} <= ?"
         val maxDateModified =
