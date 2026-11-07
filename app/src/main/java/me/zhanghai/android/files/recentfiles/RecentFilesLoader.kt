@@ -4,10 +4,9 @@ import android.provider.MediaStore
 import androidx.annotation.WorkerThread
 import java8.nio.file.Paths
 import me.zhanghai.android.files.app.contentResolver
-import me.zhanghai.android.files.file.MimeType
-import me.zhanghai.android.files.file.asMimeTypeOrNull
-import me.zhanghai.android.files.file.guessFromPath
-import java.io.File
+import me.zhanghai.android.files.file.FileItem
+import me.zhanghai.android.files.file.loadFileItem
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -28,14 +27,9 @@ object RecentFilesLoader {
     private const val FORMAT_ASSOCIATION = 0x3001
 
     @WorkerThread
-    fun load(showHiddenFiles: Boolean): List<RecentFile> {
+    fun load(showHiddenFiles: Boolean): List<FileItem> {
         val uri = MediaStore.Files.getContentUri("external")
-        val projection = arrayOf(
-            MediaStore.Files.FileColumns.DATA,
-            MediaStore.Files.FileColumns.MIME_TYPE,
-            MediaStore.Files.FileColumns.SIZE,
-            MediaStore.Files.FileColumns.DATE_MODIFIED
-        )
+        val projection = arrayOf(MediaStore.Files.FileColumns.DATA)
         // Exclude directories and empty files, and files with a modification time in the future
         // (with a day of tolerance for time zone issues) that would otherwise stick to the top.
         val selection = "($COLUMN_FORMAT IS NULL" +
@@ -48,13 +42,9 @@ object RecentFilesLoader {
         val sortOrder = "${MediaStore.Files.FileColumns.DATE_MODIFIED} DESC"
         val cursor = contentResolver.query(uri, projection, selection, selectionArgs, sortOrder)
             ?: return emptyList()
-        val recentFiles = mutableListOf<RecentFile>()
+        val recentFiles = mutableListOf<FileItem>()
         cursor.use {
             val dataColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATA)
-            val mimeTypeColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.MIME_TYPE)
-            val sizeColumn = it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.SIZE)
-            val dateModifiedColumn =
-                it.getColumnIndexOrThrow(MediaStore.Files.FileColumns.DATE_MODIFIED)
             var scannedRowCount = 0
             while (recentFiles.size < MAX_SIZE && scannedRowCount < MAX_SCANNED_ROW_COUNT
                 && it.moveToNext()) {
@@ -68,20 +58,18 @@ object RecentFilesLoader {
                     }) {
                     continue
                 }
-                // MediaStore may lag behind the file system.
-                val file = File(data)
-                if (!file.isFile) {
+                // Load the file the same way as the file list does, so that we get the same MIME
+                // type, thumbnail and badges. This also skips files that MediaStore still has but
+                // were already deleted.
+                val file = try {
+                    Paths.get(data).loadFileItem()
+                } catch (e: IOException) {
                     continue
                 }
-                // Prefer our own guess for consistency with the file list, which also has better
-                // coverage than MediaStore for some types.
-                val mimeType = MimeType.guessFromPath(data).takeIf { mimeType ->
-                    mimeType != MimeType.GENERIC
-                } ?: it.getString(mimeTypeColumn)?.asMimeTypeOrNull() ?: MimeType.GENERIC
-                recentFiles += RecentFile(
-                    Paths.get(data), mimeType, it.getLong(sizeColumn),
-                    TimeUnit.SECONDS.toMillis(it.getLong(dateModifiedColumn))
-                )
+                if (file.attributes.isDirectory) {
+                    continue
+                }
+                recentFiles += file
             }
         }
         return recentFiles

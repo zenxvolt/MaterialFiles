@@ -15,6 +15,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import me.zhanghai.android.files.app.contentResolver
+import me.zhanghai.android.files.file.FileItem
+import me.zhanghai.android.files.filelist.FileItemSet
+import me.zhanghai.android.files.filelist.fileItemSetOf
 import me.zhanghai.android.files.settings.Settings
 import me.zhanghai.android.files.util.Failure
 import me.zhanghai.android.files.util.Loading
@@ -23,8 +26,8 @@ import me.zhanghai.android.files.util.Success
 import me.zhanghai.android.files.util.valueCompat
 
 class RecentFileListViewModel : ViewModel() {
-    private val _recentFileListLiveData = MutableLiveData<Stateful<List<RecentFile>>>()
-    val recentFileListLiveData: LiveData<Stateful<List<RecentFile>>>
+    private val _recentFileListLiveData = MutableLiveData<Stateful<List<FileItem>>>()
+    val recentFileListLiveData: LiveData<Stateful<List<FileItem>>>
         get() = _recentFileListLiveData
 
     private var loadJob: Job? = null
@@ -62,7 +65,10 @@ class RecentFileListViewModel : ViewModel() {
         val showHiddenFiles = Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat
         loadJob = viewModelScope.launch {
             _recentFileListLiveData.value = try {
-                Success(withContext(Dispatchers.IO) { RecentFilesLoader.load(showHiddenFiles) })
+                val recentFiles =
+                    withContext(Dispatchers.IO) { RecentFilesLoader.load(showHiddenFiles) }
+                retainSelectedFiles(recentFiles)
+                Success(recentFiles)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -70,6 +76,63 @@ class RecentFileListViewModel : ViewModel() {
                 Failure(oldRecentFiles, e)
             }
         }
+    }
+
+    private val _selectedFilesLiveData = MutableLiveData(fileItemSetOf())
+    val selectedFilesLiveData: LiveData<FileItemSet>
+        get() = _selectedFilesLiveData
+    val selectedFiles: FileItemSet
+        get() = _selectedFilesLiveData.valueCompat
+
+    fun selectFile(file: FileItem, selected: Boolean) {
+        selectFiles(fileItemSetOf(file), selected)
+    }
+
+    fun selectFiles(files: FileItemSet, selected: Boolean) {
+        val selectedFiles = _selectedFilesLiveData.valueCompat
+        if (selectedFiles === files) {
+            if (!selected && selectedFiles.isNotEmpty()) {
+                selectedFiles.clear()
+                _selectedFilesLiveData.value = selectedFiles
+            }
+            return
+        }
+        var changed = false
+        for (file in files) {
+            changed = changed or if (selected) {
+                selectedFiles.add(file)
+            } else {
+                selectedFiles.remove(file)
+            }
+        }
+        if (changed) {
+            _selectedFilesLiveData.value = selectedFiles
+        }
+    }
+
+    fun clearSelectedFiles() {
+        val selectedFiles = _selectedFilesLiveData.valueCompat
+        if (selectedFiles.isEmpty()) {
+            return
+        }
+        selectedFiles.clear()
+        _selectedFilesLiveData.value = selectedFiles
+    }
+
+    // Keep the selection across reloads, but drop files that are no longer in the list and use the
+    // newly loaded items for the rest.
+    private fun retainSelectedFiles(recentFiles: List<FileItem>) {
+        val selectedFiles = _selectedFilesLiveData.valueCompat
+        if (selectedFiles.isEmpty()) {
+            return
+        }
+        val newSelectedFiles = recentFiles.filterTo(fileItemSetOf()) { it in selectedFiles }
+        if (newSelectedFiles == selectedFiles) {
+            return
+        }
+        selectedFiles.clear()
+        selectedFiles.addAll(newSelectedFiles)
+        _selectedFilesLiveData.value = selectedFiles
     }
 
     companion object {

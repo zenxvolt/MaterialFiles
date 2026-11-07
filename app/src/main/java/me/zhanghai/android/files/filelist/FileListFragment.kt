@@ -1471,11 +1471,11 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         result ?: return
         when (result.action) {
             RecentFileListActivity.Result.Action.SHOW_IN_DIRECTORY ->
-                result.path.parent?.let { navigateTo(it) }
-            // The file is added to the paste state, so the user can paste it into a directory.
-            RecentFileListActivity.Result.Action.CUT -> cutFile(result.file!!)
-            RecentFileListActivity.Result.Action.COPY -> copyFile(result.file!!)
-            RecentFileListActivity.Result.Action.EXTRACT -> extractFile(result.file!!)
+                result.path!!.parent?.let { navigateTo(it) }
+            // The files are added to the paste state, so the user can paste them into a directory.
+            RecentFileListActivity.Result.Action.CUT -> cutFiles(result.files!!)
+            RecentFileListActivity.Result.Action.COPY -> copyFiles(result.files!!)
+            RecentFileListActivity.Result.Action.EXTRACT -> extractFiles(result.files!!)
         }
     }
 

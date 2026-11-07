@@ -11,7 +11,7 @@ import java8.nio.file.Path
 import kotlinx.parcelize.Parcelize
 import kotlinx.parcelize.WriteWith
 import me.zhanghai.android.files.app.AppActivity
-import me.zhanghai.android.files.file.FileItem
+import me.zhanghai.android.files.filelist.FileItemSet
 import me.zhanghai.android.files.util.ParcelableParceler
 import me.zhanghai.android.files.util.args
 import me.zhanghai.android.files.util.createIntent
@@ -39,11 +39,11 @@ class RecentFileListActivity : AppActivity() {
     @Parcelize
     class Result(
         val action: Action,
-        val path: @WriteWith<ParcelableParceler> Path,
-        val file: FileItem?
+        val path: @WriteWith<ParcelableParceler> Path?,
+        val files: FileItemSet?
     ) : Parcelable {
         init {
-            require(action == Action.SHOW_IN_DIRECTORY || file != null)
+            require(if (action == Action.SHOW_IN_DIRECTORY) path != null else files != null)
         }
 
         enum class Action {

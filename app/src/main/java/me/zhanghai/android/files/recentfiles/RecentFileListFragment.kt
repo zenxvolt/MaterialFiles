@@ -31,7 +31,6 @@ import me.zhanghai.android.files.databinding.RecentFileListFragmentBinding
 import me.zhanghai.android.files.file.FileItem
 import me.zhanghai.android.files.file.MimeType
 import me.zhanghai.android.files.file.fileProviderUri
-import me.zhanghai.android.files.file.loadFileItem
 import me.zhanghai.android.files.filejob.FileJobService
 import me.zhanghai.android.files.filelist.ConfirmDeleteFilesDialogFragment
 import me.zhanghai.android.files.filelist.CreateArchiveDialogFragment
@@ -41,17 +40,20 @@ import me.zhanghai.android.files.filelist.OpenFileActivity
 import me.zhanghai.android.files.filelist.OpenFileAsDialogActivity
 import me.zhanghai.android.files.filelist.OpenFileAsDialogFragment
 import me.zhanghai.android.files.filelist.RenameFileDialogFragment
-import me.zhanghai.android.files.filelist.fileItemSetOf
+import me.zhanghai.android.files.filelist.isArchiveFile
 import me.zhanghai.android.files.filelist.name
 import me.zhanghai.android.files.filelist.toUserFriendlyString
 import me.zhanghai.android.files.fileproperties.FilePropertiesDialogFragment
 import me.zhanghai.android.files.provider.common.exists
+import me.zhanghai.android.files.ui.OverlayToolbarActionMode
 import me.zhanghai.android.files.ui.ScrollingViewOnApplyWindowInsetsListener
+import me.zhanghai.android.files.ui.ToolbarActionMode
 import me.zhanghai.android.files.util.Failure
 import me.zhanghai.android.files.util.Loading
 import me.zhanghai.android.files.util.ParcelableArgs
 import me.zhanghai.android.files.util.Stateful
 import me.zhanghai.android.files.util.Success
+import me.zhanghai.android.files.util.addOnBackPressedCallback
 import me.zhanghai.android.files.util.args
 import me.zhanghai.android.files.util.copyText
 import me.zhanghai.android.files.util.createIntent
@@ -64,7 +66,6 @@ import me.zhanghai.android.files.util.showToast
 import me.zhanghai.android.files.util.startActivitySafe
 import me.zhanghai.android.files.util.viewModels
 import me.zhanghai.android.files.util.withChooser
-import java.io.IOException
 
 class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
     ConfirmDeleteFilesDialogFragment.Listener, RenameFileDialogFragment.Listener,
@@ -74,6 +75,8 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
     private val viewModel by viewModels { { RecentFileListViewModel() } }
 
     private lateinit var binding: RecentFileListFragmentBinding
+
+    private lateinit var overlayActionMode: ToolbarActionMode
 
     private lateinit var adapter: RecentFileListAdapter
 
@@ -119,6 +122,8 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
         val activity = requireActivity() as AppCompatActivity
         activity.setSupportActionBar(binding.toolbar)
         activity.supportActionBar!!.setDisplayHomeAsUpEnabled(true)
+        overlayActionMode = OverlayToolbarActionMode(binding.overlayToolbar, binding.toolbar)
+        addOnBackPressedCallback(overlayActionMode.onBackPressedCallback)
         binding.recyclerView.layoutManager = LinearLayoutManager(
             activity, RecyclerView.VERTICAL, false
         )
@@ -130,6 +135,9 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
 
         viewModel.recentFileListLiveData.observe(viewLifecycleOwner) {
             onRecentFileListChanged(it)
+        }
+        viewModel.selectedFilesLiveData.observe(viewLifecycleOwner) {
+            onSelectedFilesChanged(it)
         }
     }
 
@@ -160,7 +168,7 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
             else -> super.onOptionsItemSelected(item)
         }
 
-    private fun onRecentFileListChanged(stateful: Stateful<List<RecentFile>>) {
+    private fun onRecentFileListChanged(stateful: Stateful<List<FileItem>>) {
         val recentFiles = stateful.value
         val isEmpty = recentFiles.isNullOrEmpty()
         binding.progress.fadeToVisibilityUnsafe(stateful is Loading && isEmpty)
@@ -172,21 +180,88 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
         adapter.replace(recentFiles ?: emptyList())
     }
 
-    override fun openRecentFile(recentFile: RecentFile) {
-        if (args.isPickMode) {
-            // We can't open files while picking, so let the user pick it in its directory.
-            showRecentFileInDirectory(recentFile)
+    private fun onSelectedFilesChanged(files: FileItemSet) {
+        updateOverlayToolbar()
+        adapter.replaceSelectedFiles(files)
+    }
+
+    private fun updateOverlayToolbar() {
+        val files = viewModel.selectedFiles
+        if (files.isEmpty()) {
+            if (overlayActionMode.isActive) {
+                overlayActionMode.finish()
+            }
             return
         }
-        openRecentFile(recentFile, false)
+        overlayActionMode.title = getString(R.string.file_list_select_title_format, files.size)
+        overlayActionMode.setMenuResource(R.menu.file_list_select)
+        val menu = overlayActionMode.menu
+        val isAnyFileReadOnly = files.any { it.path.fileSystem.isReadOnly }
+        menu.findItem(R.id.action_cut).isVisible = !isAnyFileReadOnly
+        menu.findItem(R.id.action_delete).isVisible = !isAnyFileReadOnly
+        menu.findItem(R.id.action_extract).isVisible = files.all { it.isArchiveFile }
+        // Recent files can be in different directories, and there's no current directory to put
+        // the archive in, so only allow compressing files in the same directory.
+        menu.findItem(R.id.action_archive).isVisible = getCommonParent(files) != null
+        if (!overlayActionMode.isActive) {
+            binding.appBarLayout.setExpanded(true)
+            overlayActionMode.start(object : ToolbarActionMode.Callback {
+                override fun onToolbarActionModeMenuItemClicked(
+                    toolbarActionMode: ToolbarActionMode,
+                    item: MenuItem
+                ): Boolean = onOverlayActionModeMenuItemClicked(item)
+
+                override fun onToolbarActionModeFinished(toolbarActionMode: ToolbarActionMode) {
+                    viewModel.clearSelectedFiles()
+                }
+            })
+        }
     }
 
-    override fun openRecentFileWith(recentFile: RecentFile) {
-        openRecentFile(recentFile, true)
+    private fun onOverlayActionModeMenuItemClicked(item: MenuItem): Boolean {
+        // Copy the set because actions may clear the selection.
+        val files = viewModel.selectedFiles.toCollection(FileItemSet())
+        when (item.itemId) {
+            R.id.action_cut -> cutRecentFiles(files)
+            R.id.action_copy -> copyRecentFiles(files)
+            R.id.action_delete -> confirmDeleteRecentFiles(files)
+            R.id.action_extract -> extractRecentFiles(files)
+            R.id.action_archive -> showCreateArchiveDialog(files)
+            R.id.action_share -> shareRecentFiles(files)
+            R.id.action_select_all -> adapter.selectAllFiles()
+            else -> return false
+        }
+        return true
     }
 
-    private fun openRecentFile(recentFile: RecentFile, withChooser: Boolean) {
-        val path = recentFile.path
+    private fun getCommonParent(files: FileItemSet): Path? {
+        val parents = files.mapTo(mutableSetOf()) { it.path.parent }
+        return parents.singleOrNull()
+    }
+
+    override fun selectFile(file: FileItem, selected: Boolean) {
+        viewModel.selectFile(file, selected)
+    }
+
+    override fun selectFiles(files: FileItemSet, selected: Boolean) {
+        viewModel.selectFiles(files, selected)
+    }
+
+    override fun openRecentFile(file: FileItem) {
+        if (args.isPickMode) {
+            // We can't open files while picking, so let the user pick it in its directory.
+            showRecentFileInDirectory(file)
+            return
+        }
+        openRecentFile(file, false)
+    }
+
+    override fun openRecentFileWith(file: FileItem) {
+        openRecentFile(file, true)
+    }
+
+    private fun openRecentFile(file: FileItem, withChooser: Boolean) {
+        val path = file.path
         viewLifecycleOwner.lifecycleScope.launch {
             val exists = withContext(Dispatchers.IO) { path.exists() }
             if (!exists) {
@@ -194,7 +269,7 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
                 viewModel.reload()
                 return@launch
             }
-            openFile(path, recentFile.mimeType, withChooser)
+            openFile(path, file.mimeType, withChooser)
         }
     }
 
@@ -217,35 +292,33 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
         startActivitySafe(intent)
     }
 
-    override fun showRecentFileInDirectory(recentFile: RecentFile) {
+    override fun showRecentFileInDirectory(file: FileItem) {
         finishWithResult(
             RecentFileListActivity.Result(
-                RecentFileListActivity.Result.Action.SHOW_IN_DIRECTORY, recentFile.path, null
+                RecentFileListActivity.Result.Action.SHOW_IN_DIRECTORY, file.path, null
             )
         )
     }
 
     // Cut, copy and extract need a target directory, so hand them over to the file list, where
-    // the file can then be pasted like any other file.
-    override fun cutRecentFile(recentFile: RecentFile) {
-        finishWithFileListAction(recentFile, RecentFileListActivity.Result.Action.CUT)
+    // the files can then be pasted like any other files.
+    override fun cutRecentFiles(files: FileItemSet) {
+        finishWithFileListAction(files, RecentFileListActivity.Result.Action.CUT)
     }
 
-    override fun copyRecentFile(recentFile: RecentFile) {
-        finishWithFileListAction(recentFile, RecentFileListActivity.Result.Action.COPY)
+    override fun copyRecentFiles(files: FileItemSet) {
+        finishWithFileListAction(files, RecentFileListActivity.Result.Action.COPY)
     }
 
-    override fun extractRecentFile(recentFile: RecentFile) {
-        finishWithFileListAction(recentFile, RecentFileListActivity.Result.Action.EXTRACT)
+    override fun extractRecentFiles(files: FileItemSet) {
+        finishWithFileListAction(files, RecentFileListActivity.Result.Action.EXTRACT)
     }
 
     private fun finishWithFileListAction(
-        recentFile: RecentFile,
+        files: FileItemSet,
         action: RecentFileListActivity.Result.Action
     ) {
-        withFileItem(recentFile) {
-            finishWithResult(RecentFileListActivity.Result(action, recentFile.path, it))
-        }
+        finishWithResult(RecentFileListActivity.Result(action, null, files))
     }
 
     private fun finishWithResult(result: RecentFileListActivity.Result) {
@@ -256,30 +329,28 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
         activity.finish()
     }
 
-    override fun confirmDeleteRecentFile(recentFile: RecentFile) {
-        withFileItem(recentFile) { ConfirmDeleteFilesDialogFragment.show(fileItemSetOf(it), this) }
+    override fun confirmDeleteRecentFiles(files: FileItemSet) {
+        ConfirmDeleteFilesDialogFragment.show(files, this)
     }
 
     override fun deleteFiles(files: FileItemSet) {
         FileJobService.delete(files.map { it.path }, requireContext())
+        viewModel.selectFiles(files, false)
     }
 
-    override fun showRenameRecentFileDialog(recentFile: RecentFile) {
-        withFileItem(recentFile) {
-            fileNameDialogDirectory = recentFile.path.parent
-            RenameFileDialogFragment.show(it, this)
-        }
+    override fun showRenameRecentFileDialog(file: FileItem) {
+        fileNameDialogDirectory = file.path.parent
+        RenameFileDialogFragment.show(file, this)
     }
 
     override fun renameFile(file: FileItem, newName: String) {
         FileJobService.rename(file.path, newName, requireContext())
+        viewModel.selectFile(file, false)
     }
 
-    override fun showCreateArchiveDialog(recentFile: RecentFile) {
-        withFileItem(recentFile) {
-            fileNameDialogDirectory = recentFile.path.parent
-            CreateArchiveDialogFragment.show(fileItemSetOf(it), this)
-        }
+    override fun showCreateArchiveDialog(files: FileItemSet) {
+        fileNameDialogDirectory = getCommonParent(files) ?: return
+        CreateArchiveDialogFragment.show(files, this)
     }
 
     override fun archive(
@@ -289,10 +360,12 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
         filter: Int,
         password: String?
     ) {
-        val archiveFile = files.first().path.resolveSibling(name)
+        val directory = getCommonParent(files) ?: return
         FileJobService.archive(
-            files.map { it.path }, archiveFile, format, filter, password, requireContext()
+            files.map { it.path }, directory.resolve(name), format, filter, password,
+            requireContext()
         )
+        viewModel.selectFiles(files, false)
     }
 
     override fun hasFileWithName(name: String): Boolean {
@@ -306,23 +379,24 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
         }
     }
 
-    override fun shareRecentFile(recentFile: RecentFile) {
-        val intent = listOf(recentFile.path.fileProviderUri)
-            .createSendStreamIntent(listOf(recentFile.mimeType))
+    override fun shareRecentFiles(files: FileItemSet) {
+        val intent = files.map { it.path.fileProviderUri }
+            .createSendStreamIntent(files.map { it.mimeType })
             .withChooser()
         startActivitySafe(intent)
+        viewModel.selectFiles(files, false)
     }
 
-    override fun copyRecentFilePath(recentFile: RecentFile) {
-        clipboardManager.copyText(recentFile.path.toUserFriendlyString(), requireContext())
+    override fun copyRecentFilePath(file: FileItem) {
+        clipboardManager.copyText(file.path.toUserFriendlyString(), requireContext())
     }
 
-    override fun createRecentFileShortcut(recentFile: RecentFile) {
+    override fun createRecentFileShortcut(file: FileItem) {
         val context = requireContext()
-        val path = recentFile.path
+        val path = file.path
         val shortcutInfo = ShortcutInfoCompat.Builder(context, path.toString())
             .setShortLabel(path.name)
-            .setIntent(OpenFileActivity.createIntent(path, recentFile.mimeType))
+            .setIntent(OpenFileActivity.createIntent(path, file.mimeType))
             .setIcon(IconCompat.createWithResource(context, R.mipmap.file_shortcut_icon))
             .build()
         ShortcutManagerCompat.requestPinShortcut(context, shortcutInfo, null)
@@ -331,27 +405,8 @@ class RecentFileListFragment : Fragment(), RecentFileListAdapter.Listener,
         }
     }
 
-    override fun showRecentFilePropertiesDialog(recentFile: RecentFile) {
-        withFileItem(recentFile) { FilePropertiesDialogFragment.show(it, this) }
-    }
-
-    private fun withFileItem(recentFile: RecentFile, block: (FileItem) -> Unit) {
-        viewLifecycleOwner.lifecycleScope.launch {
-            val file = withContext(Dispatchers.IO) {
-                try {
-                    recentFile.path.loadFileItem()
-                } catch (e: IOException) {
-                    e.printStackTrace()
-                    null
-                }
-            }
-            if (file == null) {
-                showToast(R.string.recent_file_not_found)
-                viewModel.reload()
-                return@launch
-            }
-            block(file)
-        }
+    override fun showRecentFilePropertiesDialog(file: FileItem) {
+        FilePropertiesDialogFragment.show(file, this)
     }
 
     companion object {

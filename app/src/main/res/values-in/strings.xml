@@ -644,6 +644,5 @@
     <string name="recent_file_list_empty">Tidak ada file terbaru</string>
     <string name="recent_file_list_action_refresh">Muat ulang</string>
     <string name="recent_file_item_action_show_in_directory">Tampilkan di folder</string>
-    <string name="recent_file_item_menu">Opsi lainnya</string>
     <string name="recent_file_not_found">File sudah tidak ada</string>
 </resources>

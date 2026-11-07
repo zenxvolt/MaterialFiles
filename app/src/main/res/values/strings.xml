@@ -780,7 +780,6 @@
     <string name="recent_file_list_action_refresh">Refresh</string>
     <string name="recent_file_item_description_separator" translatable="false">" · "</string>
     <string name="recent_file_item_action_show_in_directory">Show in folder</string>
-    <string name="recent_file_item_menu">More options</string>
     <string name="recent_file_not_found">File no longer exists</string>
     <string name="settings_root_strategy_title">Root access mode</string>
     <plurals name="settings_root_strategy_message_format">

@@ -8,6 +8,7 @@
     android:fitsSystemWindows="true">
 
     <me.zhanghai.android.files.ui.CoordinatorAppBarLayout
+        android:id="@+id/appBarLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?colorAppBarSurface"
@@ -15,11 +16,25 @@
         app:liftOnScroll="true"
         app:liftOnScrollTargetViewId="@id/recyclerView">
 
-        <androidx.appcompat.widget.Toolbar
-            android:id="@+id/toolbar"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="?actionBarSize"
-            app:popupTheme="?actionBarPopupTheme" />
+            android:layout_height="wrap_content">
+
+            <androidx.appcompat.widget.Toolbar
+                android:id="@+id/toolbar"
+                android:layout_width="match_parent"
+                android:layout_height="?actionBarSize"
+                app:popupTheme="?actionBarPopupTheme" />
+
+            <me.zhanghai.android.files.ui.OverlayToolbar
+                android:id="@+id/overlayToolbar"
+                android:layout_width="match_parent"
+                android:layout_height="?actionBarSize"
+                android:background="?colorAppBarSurface"
+                android:visibility="gone"
+                app:navigationIcon="@drawable/close_icon_control_normal_24dp"
+                app:popupTheme="?actionBarPopupTheme" />
+        </FrameLayout>
     </me.zhanghai.android.files.ui.CoordinatorAppBarLayout>
 
     <me.zhanghai.android.files.ui.CoordinatorScrollingFrameLayout
