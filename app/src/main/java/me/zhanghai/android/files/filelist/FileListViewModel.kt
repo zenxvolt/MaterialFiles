@@ -17,6 +17,7 @@ import me.zhanghai.android.files.filelist.FileSortOptions.By
 import me.zhanghai.android.files.filelist.FileSortOptions.Order
 import me.zhanghai.android.files.provider.archive.archiveRefresh
 import me.zhanghai.android.files.provider.archive.isArchivePath
+import me.zhanghai.android.files.recentfiles.RecentFileListLiveData
 import me.zhanghai.android.files.util.CloseableLiveData
 import me.zhanghai.android.files.util.Stateful
 import me.zhanghai.android.files.util.valueCompat
@@ -61,8 +62,31 @@ class FileListViewModel : ViewModel() {
         _searchStateLiveData.value = SearchState(false, "")
     }
 
-    private val _fileListLiveData =
-        FileListSwitchMapLiveData(currentPathLiveData, _searchStateLiveData)
+    // Recent files are shown in place of the current directory, which is kept so that we can go
+    // back to it.
+    private val _isShowingRecentFilesLiveData = MutableLiveData(false)
+    val isShowingRecentFilesLiveData: LiveData<Boolean>
+        get() = _isShowingRecentFilesLiveData
+    var isShowingRecentFiles: Boolean
+        get() = _isShowingRecentFilesLiveData.valueCompat
+        set(value) {
+            if (_isShowingRecentFilesLiveData.valueCompat == value) {
+                return
+            }
+            _isShowingRecentFilesLiveData.value = value
+        }
+
+    // The list state of the current directory before showing recent files, to be restored when
+    // going back to it.
+    var stateBeforeRecentFiles: Parcelable? = null
+
+    // The directory of the file that a file name dialog (rename or compress) is for when showing
+    // recent files, for checking whether a file with the same name already exists.
+    var recentFileNameDialogDirectory: Path? = null
+
+    private val _fileListLiveData = FileListSwitchMapLiveData(
+        currentPathLiveData, _searchStateLiveData, _isShowingRecentFilesLiveData
+    )
     val fileListLiveData: LiveData<Stateful<List<FileItem>>>
         get() = _fileListLiveData
     val fileListStateful: Stateful<List<FileItem>>
@@ -70,7 +94,7 @@ class FileListViewModel : ViewModel() {
 
     fun reload() {
         val path = currentPath
-        if (path.isArchivePath) {
+        if (!isShowingRecentFiles && path.isArchivePath) {
             path.archiveRefresh()
         }
         _fileListLiveData.reload()
@@ -243,26 +267,38 @@ class FileListViewModel : ViewModel() {
 
     private class FileListSwitchMapLiveData(
         private val pathLiveData: LiveData<Path>,
-        private val searchStateLiveData: LiveData<SearchState>
+        private val searchStateLiveData: LiveData<SearchState>,
+        private val isShowingRecentFilesLiveData: LiveData<Boolean>
     ) : MediatorLiveData<Stateful<List<FileItem>>>(), Closeable {
         private var liveData: CloseableLiveData<Stateful<List<FileItem>>>? = null
+
+        private var isShowingRecentFiles = false
 
         init {
             addSource(pathLiveData) { updateSource() }
             addSource(searchStateLiveData) { updateSource() }
+            // Only update for an actual change, e.g. not for the initial value.
+            addSource(isShowingRecentFilesLiveData) {
+                if (it != isShowingRecentFiles) {
+                    updateSource()
+                }
+            }
         }
 
         private fun updateSource() {
+            val path = pathLiveData.valueCompat
+            val searchState = searchStateLiveData.valueCompat
+            val isShowingRecentFiles = isShowingRecentFilesLiveData.valueCompat
+            this.isShowingRecentFiles = isShowingRecentFiles
             liveData?.let {
                 removeSource(it)
                 it.close()
             }
-            val path = pathLiveData.valueCompat
-            val searchState = searchStateLiveData.valueCompat
-            val liveData = if (searchState.isSearching) {
-                SearchFileListLiveData(path, searchState.query)
-            } else {
-                FileListLiveData(path)
+            val liveData = when {
+                isShowingRecentFiles ->
+                    RecentFileListLiveData(searchState.query.takeIf { searchState.isSearching })
+                searchState.isSearching -> SearchFileListLiveData(path, searchState.query)
+                else -> FileListLiveData(path)
             }
             this.liveData = liveData
             addSource(liveData) { value = it }
@@ -272,6 +308,7 @@ class FileListViewModel : ViewModel() {
             when (val liveData = liveData) {
                 is FileListLiveData -> liveData.loadValue()
                 is SearchFileListLiveData -> liveData.loadValue()
+                is RecentFileListLiveData -> liveData.loadValue()
             }
         }
 

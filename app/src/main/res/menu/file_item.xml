@@ -7,6 +7,12 @@
 
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Only shown for recent files, which are from different directories. -->
+    <item
+        android:id="@+id/action_show_in_directory"
+        android:title="@string/file_item_action_show_in_directory"
+        android:visible="false" />
+
     <item
         android:id="@+id/action_open_with"
         android:title="@string/file_item_action_open_with" />

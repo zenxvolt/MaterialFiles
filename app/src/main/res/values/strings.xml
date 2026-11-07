@@ -322,6 +322,7 @@
     <string name="file_list_action_create_directory">Folder</string>
 
     <string name="file_item_description_separator">\u0020\u0020\u0020\u0020</string>
+    <string name="file_item_action_show_in_directory">Show in folder</string>
     <string name="file_item_action_open_with">Open with</string>
     <string name="file_item_action_extract">Extract</string>
     <string name="file_item_action_archive">Compress</string>
@@ -775,12 +776,12 @@
     <string name="settings_bookmark_directory_list_title" translatable="false">@string/settings_bookmark_directories_title</string>
     <string name="settings_bookmark_directory_list_empty" translatable="false">@string/settings_bookmark_directories_summary_empty</string>
 
-    <string name="recent_file_list_title" translatable="false">@string/navigation_recent_files</string>
     <string name="recent_file_list_empty">No recent files</string>
-    <string name="recent_file_list_action_refresh">Refresh</string>
-    <string name="recent_file_item_description_separator" translatable="false">" · "</string>
-    <string name="recent_file_item_action_show_in_directory">Show in folder</string>
-    <string name="recent_file_not_found">File no longer exists</string>
+    <plurals name="recent_file_list_subtitle_today_count_format">
+        <item quantity="one">%1$,d file today</item>
+        <item quantity="other">%1$,d files today</item>
+    </plurals>
+    <string name="recent_file_list_subtitle_total_count_format">%1$,d total</string>
     <string name="settings_root_strategy_title">Root access mode</string>
     <plurals name="settings_root_strategy_message_format">
         <item quantity="one">You have %1$,d file operation running and changing root access mode now may result in unexpected error. Are you sure you want to change it now?</item>

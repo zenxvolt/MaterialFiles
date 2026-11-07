@@ -32,6 +32,7 @@ abstract class NavigationItem {
 
     interface Listener {
         val currentPath: Path
+        val isShowingRecentFiles: Boolean
         fun navigateTo(path: Path)
         fun navigateToRoot(path: Path)
         fun launchIntent(intent: Intent)

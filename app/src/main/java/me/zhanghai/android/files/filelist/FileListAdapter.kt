@@ -47,6 +47,13 @@ class FileListAdapter(
 ) : AnimatedListAdapter<FileItem, FileListAdapter.ViewHolder>(CALLBACK), PopupTextProvider {
     private var isSearching = false
 
+    // Recent files are already ordered by their last modified time, and are from different
+    // directories.
+    private var isShowingRecentFiles = false
+
+    private val isSorted: Boolean
+        get() = !isSearching && !isShowingRecentFiles
+
     private lateinit var _viewType: FileViewType
     var viewType: FileViewType
         get() = _viewType
@@ -62,7 +69,7 @@ class FileListAdapter(
         get() = _sortOptions
         set(value) {
             _sortOptions = value
-            if (!isSearching) {
+            if (isSorted) {
                 val sortedList = list.sortedWith(value.createComparator())
                 super.replace(sortedList, true)
                 rebuildFilePositionMap()
@@ -148,15 +155,17 @@ class FileListAdapter(
         rebuildFilePositionMap()
     }
 
-    @Deprecated("", ReplaceWith("replaceListAndSearching(list, searching)"))
+    @Deprecated("", ReplaceWith("replaceList(list, isSearching, isShowingRecentFiles)"))
     override fun replace(list: List<FileItem>, clear: Boolean) {
         throw UnsupportedOperationException()
     }
 
-    fun replaceListAndIsSearching(list: List<FileItem>, isSearching: Boolean) {
-        val clear = this.isSearching != isSearching
+    fun replaceList(list: List<FileItem>, isSearching: Boolean, isShowingRecentFiles: Boolean) {
+        val clear = this.isSearching != isSearching ||
+            this.isShowingRecentFiles != isShowingRecentFiles
         this.isSearching = isSearching
-        val sortedList = if (!isSearching) list.sortedWith(sortOptions.createComparator()) else list
+        this.isShowingRecentFiles = isShowingRecentFiles
+        val sortedList = if (isSorted) list.sortedWith(sortOptions.createComparator()) else list
         super.replace(sortedList, clear)
         rebuildFilePositionMap()
     }
@@ -325,7 +334,14 @@ class FileListAdapter(
                 .formatShort(context)
             val size = attributes.fileSize.formatHumanReadable(context)
             val descriptionSeparator = context.getString(R.string.file_item_description_separator)
-            listOf(lastModificationTime, size).joinToString(descriptionSeparator)
+            // Recent files are from different directories.
+            val parentDirectory = if (isShowingRecentFiles) {
+                path.parent?.toUserFriendlyString()
+            } else {
+                null
+            }
+            listOfNotNull(lastModificationTime, size, parentDirectory)
+                .joinToString(descriptionSeparator)
         }
         val isArchivePath = path.isArchivePath
         menu.findItem(R.id.action_copy)
@@ -335,8 +351,13 @@ class FileListAdapter(
         menu.findItem(R.id.action_extract).isVisible = file.isArchiveFile
         menu.findItem(R.id.action_archive).isVisible = !isArchivePath
         menu.findItem(R.id.action_add_bookmark).isVisible = isDirectory
+        menu.findItem(R.id.action_show_in_directory).isVisible = isShowingRecentFiles
         holder.popupMenu.setOnMenuItemClickListener {
             when (it.itemId) {
+                R.id.action_show_in_directory -> {
+                    listener.showFileInDirectory(file)
+                    true
+                }
                 R.id.action_open_with -> {
                     listener.openFileWith(file)
                     true
@@ -392,6 +413,9 @@ class FileListAdapter(
 
     override fun getPopupText(view: View, position: Int): CharSequence {
         val file = getItem(position)
+        if (isShowingRecentFiles) {
+            return file.attributes.lastModifiedTime().toInstant().formatShort(view.context)
+        }
         return when (sortOptions.by) {
             FileSortOptions.By.NAME -> file.name.take(1).uppercase(Locale.getDefault())
             FileSortOptions.By.TYPE -> file.extension.uppercase(Locale.getDefault())
@@ -472,6 +496,7 @@ class FileListAdapter(
         fun selectFiles(files: FileItemSet, selected: Boolean)
         fun openFile(file: FileItem)
         fun openFileWith(file: FileItem)
+        fun showFileInDirectory(file: FileItem)
         fun cutFile(file: FileItem)
         fun copyFile(file: FileItem)
         fun confirmDeleteFile(file: FileItem)
