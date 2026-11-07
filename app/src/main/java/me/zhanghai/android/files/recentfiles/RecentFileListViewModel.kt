@@ -1,5 +1,9 @@
 package me.zhanghai.android.files.recentfiles
 
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.MediaStore
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -7,8 +11,10 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import me.zhanghai.android.files.app.contentResolver
 import me.zhanghai.android.files.settings.Settings
 import me.zhanghai.android.files.util.Failure
 import me.zhanghai.android.files.util.Loading
@@ -23,8 +29,30 @@ class RecentFileListViewModel : ViewModel() {
 
     private var loadJob: Job? = null
 
+    private var reloadDebounceJob: Job? = null
+
+    // MediaStore is updated by our file jobs (and other apps), so this keeps the list in sync after
+    // e.g. deleting or renaming a file.
+    private val mediaStoreObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+        override fun onChange(selfChange: Boolean) {
+            reloadDebounceJob?.cancel()
+            reloadDebounceJob = viewModelScope.launch {
+                // Changes usually come in bursts, e.g. when copying multiple files.
+                delay(RELOAD_DEBOUNCE_MILLIS)
+                reload()
+            }
+        }
+    }
+
     init {
         reload()
+        contentResolver.registerContentObserver(
+            MediaStore.Files.getContentUri("external"), true, mediaStoreObserver
+        )
+    }
+
+    override fun onCleared() {
+        contentResolver.unregisterContentObserver(mediaStoreObserver)
     }
 
     fun reload() {
@@ -42,5 +70,9 @@ class RecentFileListViewModel : ViewModel() {
                 Failure(oldRecentFiles, e)
             }
         }
+    }
+
+    companion object {
+        private const val RELOAD_DEBOUNCE_MILLIS = 1000L
     }
 }

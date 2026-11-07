@@ -8,6 +8,7 @@ import me.zhanghai.android.files.R
 import me.zhanghai.android.files.databinding.RecentFileItemBinding
 import me.zhanghai.android.files.file.asFileSize
 import me.zhanghai.android.files.file.iconRes
+import me.zhanghai.android.files.filelist.isArchiveFile
 import me.zhanghai.android.files.filelist.name
 import me.zhanghai.android.files.filelist.toUserFriendlyString
 import me.zhanghai.android.files.ui.SimpleAdapter
@@ -27,7 +28,7 @@ class RecentFileListAdapter(
                 popupMenu = PopupMenu(binding.menuButton.context, binding.menuButton)
                     .apply {
                         inflate(R.menu.recent_file_item)
-                        menu.findItem(R.id.action_open_with).isVisible = !isPickMode
+                        inflate(R.menu.file_item)
                     }
                 binding.menuButton.setOnClickListener { popupMenu.show() }
             }
@@ -52,18 +53,38 @@ class RecentFileListAdapter(
         val sizeString = recentFile.size.asFileSize().formatHumanReadable(context)
         binding.descriptionText.text = listOfNotNull(timeString, sizeString, directoryString)
             .joinToString(context.getString(R.string.recent_file_item_description_separator))
+        // Mirror the visibility rules of the file list for a regular file, while only allowing to
+        // show the file in its directory when picking files.
+        val menu = holder.popupMenu.menu
+        val isReadOnly = path.fileSystem.isReadOnly
+        for (index in 0..<menu.size()) {
+            val item = menu.getItem(index)
+            item.isVisible = when (item.itemId) {
+                R.id.action_show_in_directory -> true
+                R.id.action_cut, R.id.action_delete, R.id.action_rename ->
+                    !isPickMode && !isReadOnly
+                R.id.action_extract -> !isPickMode && path.isArchiveFile(recentFile.mimeType)
+                R.id.action_add_bookmark -> false
+                else -> !isPickMode
+            }
+        }
         holder.popupMenu.setOnMenuItemClickListener {
             when (it.itemId) {
-                R.id.action_open_with -> {
-                    listener.openRecentFileWith(recentFile)
-                    true
-                }
-                R.id.action_show_in_directory -> {
-                    listener.showRecentFileInDirectory(recentFile)
-                    true
-                }
-                else -> false
+                R.id.action_show_in_directory -> listener.showRecentFileInDirectory(recentFile)
+                R.id.action_open_with -> listener.openRecentFileWith(recentFile)
+                R.id.action_cut -> listener.cutRecentFile(recentFile)
+                R.id.action_copy -> listener.copyRecentFile(recentFile)
+                R.id.action_delete -> listener.confirmDeleteRecentFile(recentFile)
+                R.id.action_rename -> listener.showRenameRecentFileDialog(recentFile)
+                R.id.action_extract -> listener.extractRecentFile(recentFile)
+                R.id.action_archive -> listener.showCreateArchiveDialog(recentFile)
+                R.id.action_share -> listener.shareRecentFile(recentFile)
+                R.id.action_copy_path -> listener.copyRecentFilePath(recentFile)
+                R.id.action_create_shortcut -> listener.createRecentFileShortcut(recentFile)
+                R.id.action_properties -> listener.showRecentFilePropertiesDialog(recentFile)
+                else -> return@setOnMenuItemClickListener false
             }
+            true
         }
     }
 
@@ -75,5 +96,15 @@ class RecentFileListAdapter(
         fun openRecentFile(recentFile: RecentFile)
         fun openRecentFileWith(recentFile: RecentFile)
         fun showRecentFileInDirectory(recentFile: RecentFile)
+        fun cutRecentFile(recentFile: RecentFile)
+        fun copyRecentFile(recentFile: RecentFile)
+        fun confirmDeleteRecentFile(recentFile: RecentFile)
+        fun showRenameRecentFileDialog(recentFile: RecentFile)
+        fun extractRecentFile(recentFile: RecentFile)
+        fun showCreateArchiveDialog(recentFile: RecentFile)
+        fun shareRecentFile(recentFile: RecentFile)
+        fun copyRecentFilePath(recentFile: RecentFile)
+        fun createRecentFileShortcut(recentFile: RecentFile)
+        fun showRecentFilePropertiesDialog(recentFile: RecentFile)
     }
 }

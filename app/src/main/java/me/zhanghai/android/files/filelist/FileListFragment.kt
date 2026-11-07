@@ -163,8 +163,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         RequestPermissionInSettingsContract(android.Manifest.permission.POST_NOTIFICATIONS),
         this::onRequestNotificationPermissionInSettingsResult
     )
-    private val showRecentFileInDirectoryLauncher = registerForActivityResult(
-        RecentFileListActivity.ShowInDirectoryContract(), this::onShowRecentFileInDirectoryResult
+    private val recentFilesLauncher = registerForActivityResult(
+        RecentFileListActivity.Contract(), this::onRecentFilesResult
     )
 
     private val args by args<Args>()
@@ -1464,12 +1464,19 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     override fun showRecentFiles() {
-        showRecentFileInDirectoryLauncher.launchSafe(viewModel.pickOptions != null, this)
+        recentFilesLauncher.launchSafe(viewModel.pickOptions != null, this)
     }
 
-    private fun onShowRecentFileInDirectoryResult(path: Path?) {
-        val directory = path?.parent ?: return
-        navigateTo(directory)
+    private fun onRecentFilesResult(result: RecentFileListActivity.Result?) {
+        result ?: return
+        when (result.action) {
+            RecentFileListActivity.Result.Action.SHOW_IN_DIRECTORY ->
+                result.path.parent?.let { navigateTo(it) }
+            // The file is added to the paste state, so the user can paste it into a directory.
+            RecentFileListActivity.Result.Action.CUT -> cutFile(result.file!!)
+            RecentFileListActivity.Result.Action.COPY -> copyFile(result.file!!)
+            RecentFileListActivity.Result.Action.EXTRACT -> extractFile(result.file!!)
+        }
     }
 
     override fun closeNavigationDrawer() {
