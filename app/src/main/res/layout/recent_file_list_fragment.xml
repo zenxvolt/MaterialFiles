@@ -26,6 +26,24 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <ProgressBar
+            android:id="@+id/progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/errorText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginStart="@dimen/screen_edge_margin"
+            android:layout_marginEnd="@dimen/screen_edge_margin"
+            android:gravity="center_horizontal"
+            android:textAppearance="?textAppearanceListItem"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/emptyView"
             android:layout_width="wrap_content"

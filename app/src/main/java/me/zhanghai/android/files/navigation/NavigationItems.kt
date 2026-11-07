@@ -48,13 +48,9 @@ val navigationItems: List<NavigationItem?>
                 addAll(storageVolumeItems)
             }
             add(AddStorageItem())
-            val recentFilesItems = recentFilesItems
-            val standardDirectoryItems = standardDirectoryItems
-            if (recentFilesItems.isNotEmpty() || standardDirectoryItems.isNotEmpty()) {
-                add(null)
-                addAll(recentFilesItems)
-                addAll(standardDirectoryItems)
-            }
+            add(null)
+            add(RecentFilesItem())
+            addAll(standardDirectoryItems)
             val bookmarkDirectoryItems = bookmarkDirectoryItems
             if (bookmarkDirectoryItems.isNotEmpty()) {
                 add(null)
@@ -201,11 +197,6 @@ private class AddStorageItem : NavigationItem() {
         listener.launchIntent(AddStorageDialogActivity::class.createIntent())
     }
 }
-
-private val recentFilesItems: List<NavigationItem>
-    @Size(min = 0, max = 1)
-    get() =
-        if (Settings.RECENT_FILES_ENABLED.valueCompat) listOf(RecentFilesItem()) else emptyList()
 
 private class RecentFilesItem : NavigationItem() {
     override val id: Long = R.string.navigation_recent_files.toLong()

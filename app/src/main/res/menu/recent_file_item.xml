@@ -9,8 +9,4 @@
     <item
         android:id="@+id/action_show_in_directory"
         android:title="@string/recent_file_item_action_show_in_directory" />
-
-    <item
-        android:id="@+id/action_remove"
-        android:title="@string/recent_file_item_action_remove" />
 </menu>

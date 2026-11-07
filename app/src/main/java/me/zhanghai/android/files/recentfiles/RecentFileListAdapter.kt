@@ -6,6 +6,7 @@ import androidx.appcompat.widget.PopupMenu
 import androidx.recyclerview.widget.RecyclerView
 import me.zhanghai.android.files.R
 import me.zhanghai.android.files.databinding.RecentFileItemBinding
+import me.zhanghai.android.files.file.asFileSize
 import me.zhanghai.android.files.file.iconRes
 import me.zhanghai.android.files.filelist.name
 import me.zhanghai.android.files.filelist.toUserFriendlyString
@@ -45,16 +46,12 @@ class RecentFileListAdapter(
         binding.nameText.text = path.name
         val directoryString = path.parent?.toUserFriendlyString()
         val timeString = DateUtils.getRelativeTimeSpanString(
-            recentFile.lastOpenedTime, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
+            recentFile.lastModifiedTime, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS,
             DateUtils.FORMAT_ABBREV_RELATIVE
         )
-        binding.descriptionText.text = if (directoryString != null) {
-            context.getString(
-                R.string.recent_file_item_description_format, timeString, directoryString
-            )
-        } else {
-            timeString
-        }
+        val sizeString = recentFile.size.asFileSize().formatHumanReadable(context)
+        binding.descriptionText.text = listOfNotNull(timeString, sizeString, directoryString)
+            .joinToString(context.getString(R.string.recent_file_item_description_separator))
         holder.popupMenu.setOnMenuItemClickListener {
             when (it.itemId) {
                 R.id.action_open_with -> {
@@ -63,10 +60,6 @@ class RecentFileListAdapter(
                 }
                 R.id.action_show_in_directory -> {
                     listener.showRecentFileInDirectory(recentFile)
-                    true
-                }
-                R.id.action_remove -> {
-                    listener.removeRecentFile(recentFile)
                     true
                 }
                 else -> false
@@ -82,6 +75,5 @@ class RecentFileListAdapter(
         fun openRecentFile(recentFile: RecentFile)
         fun openRecentFileWith(recentFile: RecentFile)
         fun showRecentFileInDirectory(recentFile: RecentFile)
-        fun removeRecentFile(recentFile: RecentFile)
     }
 }

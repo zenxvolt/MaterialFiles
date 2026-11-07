@@ -641,14 +641,9 @@
     <string name="about_author_github_title">Ikuti di GitHub</string>
     <string name="about_author_twitter_title">Ikuti di Twitter</string>
     <string name="navigation_recent_files">File terbaru</string>
-    <string name="settings_recent_files_enabled_title">Ingat file terbaru</string>
-    <string name="settings_recent_files_enabled_summary">Tampilkan file yang baru saja dibuka di panel navigasi</string>
     <string name="recent_file_list_empty">Tidak ada file terbaru</string>
-    <string name="recent_file_list_action_clear">Hapus riwayat</string>
-    <string name="recent_file_list_clear_message">Hapus daftar file terbaru? File-nya sendiri tidak akan dihapus.</string>
-    <string name="recent_file_list_clear_positive">Hapus</string>
+    <string name="recent_file_list_action_refresh">Muat ulang</string>
     <string name="recent_file_item_action_show_in_directory">Tampilkan di folder</string>
-    <string name="recent_file_item_action_remove">Hapus dari daftar</string>
     <string name="recent_file_item_menu">Opsi lainnya</string>
     <string name="recent_file_not_found">File sudah tidak ada</string>
 </resources>

@@ -8,7 +8,6 @@ package me.zhanghai.android.files.settings
 import android.os.Build
 import android.os.Bundle
 import me.zhanghai.android.files.R
-import me.zhanghai.android.files.recentfiles.RecentFiles
 import me.zhanghai.android.files.theme.custom.CustomThemeHelper
 import me.zhanghai.android.files.theme.custom.ThemeColor
 import me.zhanghai.android.files.theme.night.NightMode
@@ -47,7 +46,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
         Settings.MATERIAL_DESIGN_3.observe(viewLifecycleOwner, this::onMaterialDesign3Changed)
         Settings.NIGHT_MODE.observe(viewLifecycleOwner, this::onNightModeChanged)
         Settings.BLACK_NIGHT_MODE.observe(viewLifecycleOwner, this::onBlackNightModeChanged)
-        Settings.RECENT_FILES_ENABLED.observe(viewLifecycleOwner, this::onRecentFilesEnabledChanged)
     }
 
     private fun onThemeColorChanged(themeColor: ThemeColor) {
@@ -60,13 +58,6 @@ class SettingsPreferenceFragment : PreferenceFragmentCompat() {
 
     private fun onNightModeChanged(nightMode: NightMode) {
         NightModeHelper.sync()
-    }
-
-    private fun onRecentFilesEnabledChanged(isRecentFilesEnabled: Boolean) {
-        if (!isRecentFilesEnabled) {
-            // Don't keep history around after the user opted out of it.
-            RecentFiles.clear()
-        }
     }
 
     private fun onBlackNightModeChanged(blackNightMode: Boolean) {

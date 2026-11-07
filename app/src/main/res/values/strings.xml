@@ -774,17 +774,12 @@
     <string name="settings_bookmark_directories_summary_empty">No bookmark folders</string>
     <string name="settings_bookmark_directory_list_title" translatable="false">@string/settings_bookmark_directories_title</string>
     <string name="settings_bookmark_directory_list_empty" translatable="false">@string/settings_bookmark_directories_summary_empty</string>
-    <string name="settings_recent_files_enabled_title">Remember recent files</string>
-    <string name="settings_recent_files_enabled_summary">Show files you opened recently in the navigation drawer</string>
 
     <string name="recent_file_list_title" translatable="false">@string/navigation_recent_files</string>
     <string name="recent_file_list_empty">No recent files</string>
-    <string name="recent_file_list_action_clear">Clear history</string>
-    <string name="recent_file_list_clear_message">Clear the list of recent files? The files themselves won\'t be deleted.</string>
-    <string name="recent_file_list_clear_positive">Clear</string>
-    <string name="recent_file_item_description_format">%1$s · %2$s</string>
+    <string name="recent_file_list_action_refresh">Refresh</string>
+    <string name="recent_file_item_description_separator" translatable="false">" · "</string>
     <string name="recent_file_item_action_show_in_directory">Show in folder</string>
-    <string name="recent_file_item_action_remove">Remove from list</string>
     <string name="recent_file_item_menu">More options</string>
     <string name="recent_file_not_found">File no longer exists</string>
     <string name="settings_root_strategy_title">Root access mode</string>
