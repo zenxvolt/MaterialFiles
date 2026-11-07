@@ -645,6 +645,5 @@
     <plurals name="recent_file_list_subtitle_today_count_format">
         <item quantity="other">%1$,d berkas hari ini</item>
     </plurals>
-    <string name="recent_file_list_subtitle_total_count_format">%1$,d total</string>
     <string name="file_item_action_show_in_directory">Tampilkan di folder</string>
 </resources>

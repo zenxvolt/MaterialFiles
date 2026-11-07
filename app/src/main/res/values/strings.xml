@@ -781,7 +781,6 @@
         <item quantity="one">%1$,d file today</item>
         <item quantity="other">%1$,d files today</item>
     </plurals>
-    <string name="recent_file_list_subtitle_total_count_format">%1$,d total</string>
     <string name="settings_root_strategy_title">Root access mode</string>
     <plurals name="settings_root_strategy_message_format">
         <item quantity="one">You have %1$,d file operation running and changing root access mode now may result in unexpected error. Are you sure you want to change it now?</item>

@@ -1597,13 +1597,9 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         val todayFileCount = files.count {
             DateUtils.isToday(it.attributes.lastModifiedTime().toMillis())
         }
-        if (todayFileCount == 0) {
-            return getSubtitle(files)
-        }
         return getQuantityString(
             R.plurals.recent_file_list_subtitle_today_count_format, todayFileCount, todayFileCount
-        ) + getString(R.string.file_list_subtitle_separator) +
-            getString(R.string.recent_file_list_subtitle_total_count_format, files.size)
+        )
     }
 
     // Recent files can be in different directories, so we can only create an archive for them
