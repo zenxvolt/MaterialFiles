@@ -1583,7 +1583,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         binding.breadcrumbLayout.isVisible = !isShowingRecentFiles
         // Creating files needs a directory.
         binding.speedDialView.isVisible = !isShowingRecentFiles
-        binding.emptyView.setText(
+        // The empty view is a TextView in the layout.
+        (binding.emptyView as TextView).setText(
             if (isShowingRecentFiles) R.string.recent_file_list_empty else R.string.file_list_empty
         )
         updateViewSortMenuItems()
