@@ -52,8 +52,7 @@ class RecentFileListLiveData(
         }
     }
 
-    @Volatile
-    private var isChangedWhileInactive = false
+    private var hasBeenActive = false
 
     init {
         loadValue()
@@ -89,18 +88,20 @@ class RecentFileListLiveData(
     }
 
     private fun onChangeObserved() {
+        // Changes while inactive are picked up when becoming active again.
         if (hasActiveObservers()) {
             loadValue(true)
-        } else {
-            isChangedWhileInactive = true
         }
     }
 
     override fun onActive() {
-        if (isChangedWhileInactive) {
+        // Always reload when coming back (except for the first time, when we've just loaded), e.g.
+        // from a browser after downloading a file, because not all changes are notified by
+        // MediaStore, e.g. for new files in the downloads directory that it hasn't indexed.
+        if (hasBeenActive) {
             loadValue(true)
-            isChangedWhileInactive = false
         }
+        hasBeenActive = true
     }
 
     override fun close() {
