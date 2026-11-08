@@ -77,7 +77,10 @@ class RecentFileListLiveData(
         val canSkip = isSilent && value !is Loading
         future?.cancel(true)
         if (!isSilent || value == null) {
-            value = Loading(value?.value)
+            // Like SearchFileListLiveData, a search always has a (possibly empty) list, which the
+            // file list relies on, e.g. for its subtitle.
+            val files = value?.value ?: if (query != null) emptyList() else null
+            value = Loading(files)
         }
         val showHiddenFiles = Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat
         future = (AsyncTask.THREAD_POOL_EXECUTOR as ExecutorService).submit<Unit> {
