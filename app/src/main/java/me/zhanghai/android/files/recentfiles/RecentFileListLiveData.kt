@@ -54,6 +54,11 @@ class RecentFileListLiveData(
 
     private var hasBeenActive = false
 
+    // The change key of the last successful load, for skipping automatic reloads when nothing
+    // changed.
+    @Volatile
+    private var lastChangeKey: RecentFilesChangeKey? = null
+
     init {
         loadValue()
         // Observe all of MediaStore, because changes may only be notified for a specific volume
@@ -64,23 +69,34 @@ class RecentFileListLiveData(
     }
 
     /**
-     * @param isSilent Whether to keep showing the current list while loading, for automatic reloads.
+     * @param isSilent Whether this is an automatic reload, which keeps showing the current list
+     * while loading, and is skipped if nothing changed.
      */
     fun loadValue(isSilent: Boolean = false) {
+        // Don't skip when replacing a load in progress, which may have never finished otherwise.
+        val canSkip = isSilent && value !is Loading
         future?.cancel(true)
         if (!isSilent || value == null) {
             value = Loading(value?.value)
         }
         val showHiddenFiles = Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat
         future = (AsyncTask.THREAD_POOL_EXECUTOR as ExecutorService).submit<Unit> {
+            val lastChangeKey = lastChangeKey
+            if (canSkip && lastChangeKey != null &&
+                RecentFilesLoader.getChangeKey(showHiddenFiles, lastChangeKey) == lastChangeKey) {
+                return@submit
+            }
             val value = try {
-                var recentFiles = RecentFilesLoader.load(showHiddenFiles)
+                val result = RecentFilesLoader.load(showHiddenFiles)
+                this.lastChangeKey = result.changeKey
+                var recentFiles = result.recentFiles
                 if (query != null) {
                     recentFiles = recentFiles.filter { it.file.name.contains(query, true) }
                 }
                 recentFileTimes = recentFiles.associate { it.file.path to it.recentTime }
                 Success(recentFiles.map { it.file })
             } catch (e: Exception) {
+                this.lastChangeKey = null
                 Failure(valueCompat.value, e)
             }
             postValue(value)
