@@ -83,7 +83,7 @@ class RecentFileListLiveData(
         future = (AsyncTask.THREAD_POOL_EXECUTOR as ExecutorService).submit<Unit> {
             val lastChangeKey = lastChangeKey
             if (canSkip && lastChangeKey != null &&
-                RecentFilesLoader.getChangeKey(showHiddenFiles, lastChangeKey) == lastChangeKey) {
+                RecentFilesLoader.getChangeKey(showHiddenFiles) == lastChangeKey) {
                 return@submit
             }
             val value = try {
@@ -111,9 +111,8 @@ class RecentFileListLiveData(
     }
 
     override fun onActive() {
-        // Always reload when coming back (except for the first time, when we've just loaded), e.g.
-        // from a browser after downloading a file, because not all changes are notified by
-        // MediaStore, e.g. for new files in the downloads directory that it hasn't indexed.
+        // Reload when coming back (except for the first time, when we've just loaded), because
+        // changes while inactive aren't reloaded. This is skipped if MediaStore didn't change.
         if (hasBeenActive) {
             loadValue(true)
         }
