@@ -19,6 +19,25 @@ jobs:
       with:
         distribution: 'temurin'
         java-version: '21'
+    - name: Set up Gradle
+      uses: gradle/actions/setup-gradle@v4
+      with:
+        # Cache the Gradle distribution and dependencies for all branches, not only the default
+        # branch, so that builds don't depend on downloading them every time.
+        cache-read-only: false
+    - name: Download Gradle
+      # Downloading the Gradle distribution sometimes fails with server errors, so retry it
+      # separately from the build, which shouldn't be retried on build failures.
+      run: |
+        for attempt in 1 2 3 4 5; do
+          if ./gradlew --version; then
+            exit 0
+          fi
+          delay=$((attempt * 30))
+          echo "Downloading Gradle failed (attempt $attempt), retrying in ${delay}s"
+          sleep "$delay"
+        done
+        exit 1
     - name: Build with Gradle
       run: ./gradlew assembleDebug lintVitalRelease
     - name: Upload artifact
