@@ -784,6 +784,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         if (!Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat) {
             files = files.filterNot { it.isHidden }
         }
+        adapter.recentFileTimes = viewModel.recentFileTimes
         adapter.replaceList(
             files, viewModel.searchState.isSearching, viewModel.isShowingRecentFiles
         )
@@ -1594,8 +1595,12 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     }
 
     private fun getRecentFilesSubtitle(files: List<FileItem>): String {
+        // Count files added or modified today, which is what recent files are ordered by.
+        val recentFileTimes = viewModel.recentFileTimes
         val todayFileCount = files.count {
-            DateUtils.isToday(it.attributes.lastModifiedTime().toMillis())
+            DateUtils.isToday(
+                recentFileTimes[it.path] ?: it.attributes.lastModifiedTime().toMillis()
+            )
         }
         return getQuantityString(
             R.plurals.recent_file_list_subtitle_today_count_format, todayFileCount, todayFileCount

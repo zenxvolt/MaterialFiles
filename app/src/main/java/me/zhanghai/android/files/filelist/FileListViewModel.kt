@@ -84,6 +84,11 @@ class FileListViewModel : ViewModel() {
     // recent files, for checking whether a file with the same name already exists.
     var recentFileNameDialogDirectory: Path? = null
 
+    // The time each recent file was last added or modified, which may differ from its last
+    // modified time.
+    val recentFileTimes: Map<Path, Long>
+        get() = _fileListLiveData.recentFileTimes
+
     private val _fileListLiveData = FileListSwitchMapLiveData(
         currentPathLiveData, _searchStateLiveData, _isShowingRecentFilesLiveData
     )
@@ -273,6 +278,9 @@ class FileListViewModel : ViewModel() {
         private var liveData: CloseableLiveData<Stateful<List<FileItem>>>? = null
 
         private var isShowingRecentFiles = false
+
+        val recentFileTimes: Map<Path, Long>
+            get() = (liveData as? RecentFileListLiveData)?.recentFileTimes ?: emptyMap()
 
         init {
             addSource(pathLiveData) { updateSource() }

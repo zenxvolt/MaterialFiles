@@ -40,6 +40,7 @@ import me.zhanghai.android.files.ui.CheckableItemBackground
 import me.zhanghai.android.files.util.isMaterial3Theme
 import me.zhanghai.android.files.util.layoutInflater
 import me.zhanghai.android.files.util.valueCompat
+import java.time.Instant
 import java.util.Locale
 
 class FileListAdapter(
@@ -53,6 +54,16 @@ class FileListAdapter(
 
     private val isSorted: Boolean
         get() = !isSearching && !isShowingRecentFiles
+
+    // The time each recent file was last added or modified, which the recent files are ordered by.
+    var recentFileTimes: Map<Path, Long> = emptyMap()
+
+    private fun getDisplayTime(file: FileItem): Instant {
+        if (isShowingRecentFiles) {
+            recentFileTimes[file.path]?.let { return Instant.ofEpochMilli(it) }
+        }
+        return file.attributes.lastModifiedTime().toInstant()
+    }
 
     private lateinit var _viewType: FileViewType
     var viewType: FileViewType
@@ -330,8 +341,7 @@ class FileListAdapter(
             null
         } else {
             val context = holder.descriptionText!!.context
-            val lastModificationTime = attributes.lastModifiedTime().toInstant()
-                .formatShort(context)
+            val lastModificationTime = getDisplayTime(file).formatShort(context)
             val size = attributes.fileSize.formatHumanReadable(context)
             val descriptionSeparator = context.getString(R.string.file_item_description_separator)
             // Recent files are from different directories.
@@ -414,7 +424,7 @@ class FileListAdapter(
     override fun getPopupText(view: View, position: Int): CharSequence {
         val file = getItem(position)
         if (isShowingRecentFiles) {
-            return file.attributes.lastModifiedTime().toInstant().formatShort(view.context)
+            return getDisplayTime(file).formatShort(view.context)
         }
         return when (sortOptions.by) {
             FileSortOptions.By.NAME -> file.name.take(1).uppercase(Locale.getDefault())

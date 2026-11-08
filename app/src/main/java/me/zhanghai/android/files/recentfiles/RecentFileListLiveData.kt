@@ -1,10 +1,12 @@
 package me.zhanghai.android.files.recentfiles
 
 import android.database.ContentObserver
+import android.net.Uri
 import android.os.AsyncTask
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import java8.nio.file.Path
 import me.zhanghai.android.files.app.contentResolver
 import me.zhanghai.android.files.file.FileItem
 import me.zhanghai.android.files.filelist.name
@@ -32,8 +34,16 @@ class RecentFileListLiveData(
 
     private val reloadRunnable = Runnable { onChangeObserved() }
 
-    // MediaStore is updated by our file jobs (and other apps), so this keeps the list in sync after
-    // e.g. deleting or renaming a file.
+    /**
+     * The time each recent file was last added or modified, which is what the list is ordered by,
+     * and may differ from the last modified time of the file.
+     */
+    @Volatile
+    var recentFileTimes: Map<Path, Long> = emptyMap()
+        private set
+
+    // MediaStore is updated by our file jobs and other apps, e.g. when a download finishes, so this
+    // keeps the list in sync.
     private val mediaStoreObserver = object : ContentObserver(handler) {
         override fun onChange(selfChange: Boolean) {
             // Changes usually come in bursts, e.g. when copying multiple files.
@@ -47,22 +57,30 @@ class RecentFileListLiveData(
 
     init {
         loadValue()
+        // Observe all of MediaStore, because changes may only be notified for a specific volume
+        // (e.g. "external_primary") or collection (e.g. downloads), but not "external".
         contentResolver.registerContentObserver(
-            MediaStore.Files.getContentUri("external"), true, mediaStoreObserver
+            Uri.parse("content://${MediaStore.AUTHORITY}"), true, mediaStoreObserver
         )
     }
 
-    fun loadValue() {
+    /**
+     * @param isSilent Whether to keep showing the current list while loading, for automatic reloads.
+     */
+    fun loadValue(isSilent: Boolean = false) {
         future?.cancel(true)
-        value = Loading(value?.value)
+        if (!isSilent || value == null) {
+            value = Loading(value?.value)
+        }
         val showHiddenFiles = Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat
         future = (AsyncTask.THREAD_POOL_EXECUTOR as ExecutorService).submit<Unit> {
             val value = try {
-                var files = RecentFilesLoader.load(showHiddenFiles)
+                var recentFiles = RecentFilesLoader.load(showHiddenFiles)
                 if (query != null) {
-                    files = files.filter { it.name.contains(query, true) }
+                    recentFiles = recentFiles.filter { it.file.name.contains(query, true) }
                 }
-                Success(files)
+                recentFileTimes = recentFiles.associate { it.file.path to it.recentTime }
+                Success(recentFiles.map { it.file })
             } catch (e: Exception) {
                 Failure(valueCompat.value, e)
             }
@@ -72,7 +90,7 @@ class RecentFileListLiveData(
 
     private fun onChangeObserved() {
         if (hasActiveObservers()) {
-            loadValue()
+            loadValue(true)
         } else {
             isChangedWhileInactive = true
         }
@@ -80,7 +98,7 @@ class RecentFileListLiveData(
 
     override fun onActive() {
         if (isChangedWhileInactive) {
-            loadValue()
+            loadValue(true)
             isChangedWhileInactive = false
         }
     }
